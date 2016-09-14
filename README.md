@@ -6,7 +6,7 @@ A simply polyfill to provide the full functionality of ES6 Promises without havi
 ## Use
 To use this polyfill, simply include the promise.js file like you would any other script.
 ```html
-<script scr="promise.js"></script>
+<script scr="promises.js"></script>
 ```
 It is that easy, you do not need node or require!
 
