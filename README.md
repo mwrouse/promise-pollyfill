@@ -37,3 +37,7 @@ Promise was resolved with: 42
 
 ## Tests
 The tests I have written are dead simply, and just run and display results in the HTML page.
+
+
+## More Examples
+To see more examples of using promises check out the [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise#Examples)
