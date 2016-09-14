@@ -198,3 +198,5 @@ var Promise = (function () {
     };
     return Promise;
 }());
+// Add the promise onto the window
+window['Promise'] = Promise;

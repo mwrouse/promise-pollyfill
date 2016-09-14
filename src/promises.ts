@@ -259,3 +259,7 @@ class Promise implements IPromise {
   }
 
 }
+
+
+// Add the promise onto the window
+window['Promise'] = Promise;
