@@ -33,3 +33,7 @@ In this example, when ran, after 5 seconds have passed you will see this in the 
 ```
 Promise was resolved with: 42
 ```
+
+
+## Tests
+The tests I have written are dead simply, and just run and display results in the HTML page.
