@@ -95,7 +95,7 @@ function race_test(nextTest){
 
 function all_test(){
   output("\\nRunning all test: ");
-  output("\\tExpected Output: 42,96,74,\"hello\"");
+  output("\\tExpected Output: 42,96,74,hello");
 
   var a = Promise.all([
     new Promise(function(resolve, reject){
