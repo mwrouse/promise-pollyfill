@@ -72,25 +72,33 @@ var Promise = (function () {
     Promise.race = function (promises) {
         var result = new Promise(function (resolve, reject, self) {
             // Loop through all promises passed (Sub-Promises)
-            for (var i = 0; i < promises.length; i++) {
+            var _loop_1 = function(i) {
                 // Handle non-promises
                 if (!Promise.isPromise(promises[i])) {
                     // Not a promise, immediately resolve
                     resolve(promises[i]);
-                    break;
+                    return out_i_1 = i, "break";
                 }
                 // Add a subscription to each promise in the array
                 promises[i].then(function (data) {
                     // Sub-Promise resolved
-                    if (self.isFullfilled() || self.isRejected())
-                        return; // PRomise is already finished, don't do anything
-                    resolve(data); // First promise to resolve, so resolve result
+                    if (!self.isFullfilled() && !self.isRejected()) {
+                        resolve(data); // First promise to resolve, so resolve result
+                    }
                 }, function (reason) {
                     // Sub-Promise rejected
-                    if (self.isFullfilled() || self.isRejected())
-                        return; // PRomise is already finished, don't do anything
-                    reject(reason); // First promise to reject, so reject result
+                    if (!self.isFullfilled() && !self.isRejected()) {
+                        reject(reason); // First promise to reject, so reject result
+                        i = promises.length; // Do not continue in the for-loop
+                    }
                 });
+                out_i_1 = i;
+            };
+            var out_i_1;
+            for (var i = 0; i < promises.length; i++) {
+                var state_1 = _loop_1(i);
+                i = out_i_1;
+                if (state_1 === "break") break;
             }
         });
         return result;
@@ -106,34 +114,34 @@ var Promise = (function () {
         var tally = [];
         var result = new Promise(function (resolve, reject, self) {
             // Loop through all of the promises passed (Sub-Promises)
-            var _loop_1 = function(i) {
+            var _loop_2 = function(i) {
                 // Handle non-promises
                 if (!Promise.isPromise(promises[i])) {
                     tally.push(promises[i]); // Add to tally
-                    return out_i_1 = i, "continue"; // Move to next promise passed
+                    return out_i_2 = i, "continue"; // Move to next promise passed
                 }
                 // Add subscription to the Sub-Promise
                 promises[i].then(function (data) {
                     // Sub-Promise has resolved
-                    if (self.isFullfilled() || self.isRejected())
-                        return; // PRomise is already finished, don't do anything
-                    tally.push(data); // Add to the running tally
-                    // Resolve the results promise when all promises have resolved
-                    if (tally.length == promises.length)
-                        resolve(tally);
+                    if (!self.isFullfilled() && !self.isRejected()) {
+                        tally.push(data); // Add to the running tally
+                        // Resolve the results promise when all promises have resolved
+                        if (tally.length == promises.length)
+                            resolve(tally);
+                    }
                 }, function (reason) {
                     // Sub-Promise was rejected
-                    if (self.isFullfilled() || self.isRejected())
-                        return; // PRomise is already finished, don't do anything
-                    reject(reason); // Reject the results promise with the first sub-promise rejected
-                    i = promises.length; // Do not continue in for-loop
+                    if (!self.isFullfilled() && !self.isRejected()) {
+                        reject(reason); // Reject the results promise with the first sub-promise rejected
+                        i = promises.length; // Do not continue in for-loop
+                    }
                 });
-                out_i_1 = i;
+                out_i_2 = i;
             };
-            var out_i_1;
+            var out_i_2;
             for (var i = 0; i < promises.length; i++) {
-                _loop_1(i);
-                i = out_i_1;
+                _loop_2(i);
+                i = out_i_2;
             }
         });
         return result;

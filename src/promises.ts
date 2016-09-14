@@ -111,14 +111,16 @@ class Promise implements IPromise {
         // Add a subscription to each promise in the array
         promises[i].then((data?: any) => {
           // Sub-Promise resolved
-          if (self.isFullfilled() || self.isRejected()) return; // PRomise is already finished, don't do anything
-
-          resolve(data); // First promise to resolve, so resolve result
+          if (!self.isFullfilled() && !self.isRejected()) {
+            resolve(data); // First promise to resolve, so resolve result
+          }
         }, (reason?: any) => {
           // Sub-Promise rejected
-          if (self.isFullfilled() || self.isRejected()) return; // PRomise is already finished, don't do anything
+          if (!self.isFullfilled() && !self.isRejected()) {
+            reject(reason); // First promise to reject, so reject result
 
-          reject(reason); // First promise to reject, so reject result
+            i = promises.length; // Do not continue in the for-loop
+          }
         });
       }
 
@@ -153,21 +155,20 @@ class Promise implements IPromise {
         // Add subscription to the Sub-Promise
         promises[i].then((data?: any) => {
           // Sub-Promise has resolved
-          if (self.isFullfilled() || self.isRejected()) return; // PRomise is already finished, don't do anything
+          if (!self.isFullfilled() && !self.isRejected()) {
+            tally.push(data); // Add to the running tally
 
-          tally.push(data); // Add to the running tally
-
-          // Resolve the results promise when all promises have resolved
-          if (tally.length == promises.length)
-            resolve(tally);
-
+            // Resolve the results promise when all promises have resolved
+            if (tally.length == promises.length)
+              resolve(tally);
+          }
         }, (reason?: any) => {
           // Sub-Promise was rejected
-          if (self.isFullfilled() || self.isRejected()) return; // PRomise is already finished, don't do anything
+          if (!self.isFullfilled() && !self.isRejected()) {
+            reject(reason); // Reject the results promise with the first sub-promise rejected
 
-          reject(reason); // Reject the results promise with the first sub-promise rejected
-
-          i = promises.length; // Do not continue in for-loop
+            i = promises.length; // Do not continue in for-loop
+          }
         });
       }
     });
@@ -237,7 +238,6 @@ class Promise implements IPromise {
     if (onRejection != undefined && typeof onRejection == 'function') this.__subscriptions.rejection.push(onRejection);
 
     if (this.isRejected()) {
-
       this.reject(this.reason);
     }
     else if (this.isFullfilled()) {
