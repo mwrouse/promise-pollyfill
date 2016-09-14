@@ -11,7 +11,7 @@ enum PromiseStates {
 /**
  * Promise Pollyfill class
  */
-export class  Promise {
+class Promise implements IPromise {
   // Callback functions
   private __subscriptions: IPromiseSubscriptions;
 
@@ -69,8 +69,8 @@ export class  Promise {
   /**
    * Static Resolve method
    */
-  static resolve (data?: any): Promise {
-      let result: Promise = new Promise((resolve, reject) => {
+  static resolve (data?: any): IPromise {
+      let result: IPromise = new Promise((resolve, reject) => {
         resolve(data);
       });
 
@@ -81,8 +81,8 @@ export class  Promise {
   /**
    * Static reject method
    */
-  static reject (reason: any): Promise {
-    let result: Promise = new Promise((resolve, reject) => {
+  static reject (reason: any): IPromise {
+    let result: IPromise = new Promise((resolve, reject) => {
       reject(reason);
     });
 
@@ -94,9 +94,9 @@ export class  Promise {
    * Static method that returns the reason of the first promise to resolve/reject from
    * an array of promises
    */
-  static race (promises: Promise[]): Promise
+  static race (promises: Promise[]): IPromise
   {
-    let result: Promise = new Promise((resolve, reject, self) => {
+    let result: IPromise = new Promise((resolve, reject, self) => {
       // Loop through all promises passed (Sub-Promises)
       for (let i = 0; i < promises.length; i++)
       {
@@ -135,11 +135,11 @@ export class  Promise {
    * The result of the promise returned by this function, if all promises passed were fullfilled, will
    * be an array in the order from first resolved to last resolved.
    */
-  static all (promises: Promise[]): Promise
+  static all (promises: Promise[]): IPromise
   {
     let tally: any[] = [];
 
-    let result: Promise = new Promise((resolve, reject, self) => {
+    let result: IPromise = new Promise((resolve, reject, self) => {
       // Loop through all of the promises passed (Sub-Promises)
       for (let i = 0; i < promises.length; i++)
       {
@@ -177,7 +177,7 @@ export class  Promise {
   /**
    * Resolves a promise
    */
-  public resolve (data?: any): Promise
+  public resolve (data?: any): IPromise
   {
     if (this.isRejected()) return this;
 
@@ -203,7 +203,7 @@ export class  Promise {
   /**
    * Rejects a promise
    */
-  public reject (reason?: any): Promise
+  public reject (reason?: any): IPromise
   {
     if (this.isRejected() || this.isFullfilled()) return this;
 
@@ -225,7 +225,7 @@ export class  Promise {
   /**
    * Specifies callback functions for resolution and rejection (rejection is optional)
    */
-  public then (onResolve: Function, onRejection?: Function): Promise
+  public then (onResolve: Function, onRejection?: Function): IPromise
   {
     if (onResolve != undefined && typeof onResolve == 'function') this.__subscriptions.fulfillment.push(onResolve);
     if (onRejection != undefined && typeof onRejection == 'function') this.__subscriptions.rejection.push(onRejection);
@@ -244,7 +244,7 @@ export class  Promise {
   /**
    * Specifics a callback function for rejection
    */
-  public catch (onRejection: Function): Promise
+  public catch (onRejection: Function): IPromise
   {
     if (onRejection != undefined && typeof onRejection == 'function') this.__subscriptions.rejection.push(onRejection);
 
@@ -258,12 +258,4 @@ export class  Promise {
     return this;
   }
 
-}
-
-
-
-
-interface IPromiseSubscriptions {
-  fulfillment: Function[],
-  rejection: Function[]
 }
