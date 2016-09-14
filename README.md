@@ -3,12 +3,15 @@ A simply polyfill to provide the full functionality of ES6 Promises without havi
 
 
 
-## Use
+## Download and Use 
+Get the file from: [HERE](https://raw.githubusercontent.com/mwrouse/promise-polyfill/master/dist/promises.js) and save it to wherever you need to.
 To use this polyfill, simply include the promise.js file like you would any other script.
 ```html
 <script scr="promises.js"></script>
 ```
 It is that easy, you do not need node or require!
+
+
 
 
 ## Basic Use
