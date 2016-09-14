@@ -106,11 +106,11 @@ var Promise = (function () {
         var tally = [];
         var result = new Promise(function (resolve, reject, self) {
             // Loop through all of the promises passed (Sub-Promises)
-            for (var i = 0; i < promises.length; i++) {
+            var _loop_1 = function(i) {
                 // Handle non-promises
                 if (!Promise.isPromise(promises[i])) {
                     tally.push(promises[i]); // Add to tally
-                    continue; // Move to next promise passed
+                    return out_i_1 = i, "continue"; // Move to next promise passed
                 }
                 // Add subscription to the Sub-Promise
                 promises[i].then(function (data) {
@@ -126,7 +126,14 @@ var Promise = (function () {
                     if (self.isFullfilled() || self.isRejected())
                         return; // PRomise is already finished, don't do anything
                     reject(reason); // Reject the results promise with the first sub-promise rejected
+                    i = promises.length; // Do not continue in for-loop
                 });
+                out_i_1 = i;
+            };
+            var out_i_1;
+            for (var i = 0; i < promises.length; i++) {
+                _loop_1(i);
+                i = out_i_1;
             }
         });
         return result;
@@ -154,8 +161,11 @@ var Promise = (function () {
      * Rejects a promise
      */
     Promise.prototype.reject = function (reason) {
-        if (this.isRejected() || this.isFullfilled())
+        if (this.isFullfilled())
             return this;
+        // Maintain same reason if it gets rejected more than once
+        if (this.isRejected() && reason != this.reason)
+            return this.reject(this.reason);
         // Update the state
         this.state = PromiseStates.Rejected;
         this.reason = reason;

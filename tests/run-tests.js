@@ -18,7 +18,9 @@ if (window.Promise)
     // Run tests
     basic_test(function(){
       race_test(function(){
-        all_test();
+        all_test(function(){
+          all_reject_test();
+        });
       })
     });
 
@@ -63,11 +65,7 @@ function race_test(nextTest){
         resolve(54);
       }, 1000);
     }),
-    new Promise(function(resolve, reject){
-      setTimeout(function(){
-        resolve(99);
-      }, 500);
-    }),
+    Promise.resolve(99),
     new Promise(function(resolve, reject){
       setTimeout(function(){
         resolve(42);
@@ -93,7 +91,7 @@ function race_test(nextTest){
 
 
 
-function all_test(){
+function all_test(nextTest){
   output("\\nRunning all test: ");
   output("\\tExpected Output: 42,96,74,hello");
 
@@ -124,8 +122,54 @@ function all_test(){
     output("\\tActual output: " + data);
     var result = (data.toString() == [42,96,74,"hello"].toString()) ? "Success" : "Fail";
     output("\\tTest Result: " + result);
+
+    nextTest();
   });
 }
+
+
+function all_reject_test(){
+  output("\\nRunning all test with rejection:");
+  output("\\tExpected Output: -1");
+
+  var a = Promise.all([
+    new Promise(function(resolve, reject){
+      setTimeout(function(){
+        resolve(74);
+      }, 300);
+    }),
+    new Promise(function(resolve, reject){
+      setTimeout(function(){
+        resolve(96);
+      }, 200);
+    }),
+    new Promise(function(resolve, reject){
+      setTimeout(function(){
+        resolve("hello");
+      }, 400);
+    }),
+    new Promise(function(resolve, reject){
+      setTimeout(function(){
+        resolve(42);
+      }, 100);
+    }),
+    Promise.reject(-1)
+  ]);
+
+  a.then(function(data){
+    output("\\tTest Result: Fail");
+  }, function (data) {
+    output("\\tActual output: " + data);
+    var result = (data == -1) ? "Success" : "Fail";
+    output("\\tTest Result: " + result);
+
+    //nextTest();
+  });
+}
+
+
+
+
 
 
 

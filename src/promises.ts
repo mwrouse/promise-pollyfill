@@ -166,6 +166,8 @@ class Promise implements IPromise {
           if (self.isFullfilled() || self.isRejected()) return; // PRomise is already finished, don't do anything
 
           reject(reason); // Reject the results promise with the first sub-promise rejected
+
+          i = promises.length; // Do not continue in for-loop
         });
       }
     });
@@ -205,7 +207,11 @@ class Promise implements IPromise {
    */
   public reject (reason?: any): IPromise
   {
-    if (this.isRejected() || this.isFullfilled()) return this;
+    if (this.isFullfilled()) return this;
+
+    // Maintain same reason if it gets rejected more than once
+    if (this.isRejected() && reason != this.reason)
+      return this.reject(this.reason);
 
     // Update the state
     this.state = PromiseStates.Rejected;
@@ -231,6 +237,7 @@ class Promise implements IPromise {
     if (onRejection != undefined && typeof onRejection == 'function') this.__subscriptions.rejection.push(onRejection);
 
     if (this.isRejected()) {
+
       this.reject(this.reason);
     }
     else if (this.isFullfilled()) {
