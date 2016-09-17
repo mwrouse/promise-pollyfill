@@ -36,10 +36,9 @@ var Promise = (function () {
     Promise.prototype.isRejected = function () { return this.state == PromiseStates.Rejected; };
     Promise.prototype.isPending = function () { return this.state == PromiseStates.Pending; };
     Promise.prototype.getState = function () {
-        var states = ["pending", "fulfilled", "rejected"];
         if (this.state == undefined)
             return "undefined";
-        return states[this.state];
+        return ["pending", "fulfilled", "rejected"][this.state];
     };
     /**
      * Runs a function, used for specific cases
@@ -150,16 +149,17 @@ var Promise = (function () {
      * Resolves a promise
      */
     Promise.prototype.resolve = function (data) {
-        if (this.isRejected())
+        if (this.isRejected() || this.isFullfilled()) {
+            console.warn("Cannot resolve a promise more than once, tried to resolve with data: ", data);
             return this;
-        // Resolve with the first data to resolve every time
-        if (this.isFullfilled() && data != this.reason)
-            return this.resolve(this.reason);
+        }
         // Update the state and the reason
         this.state = PromiseStates.Fulfilled;
         this.reason = data;
         // Perform all the callback functions
-        for (var i = 0; i < this.__subscriptions.fulfillment.length; i++) {
+        // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
+        // Looping through this array forwards then the callback function registered in a callback will occure more than once
+        for (var i = this.__subscriptions.fulfillment.length - 1; i >= 0; i--) {
             if (typeof this.__subscriptions.fulfillment[i] == 'function')
                 this.__subscriptions.fulfillment[i](this.reason);
         }
@@ -169,16 +169,17 @@ var Promise = (function () {
      * Rejects a promise
      */
     Promise.prototype.reject = function (reason) {
-        if (this.isFullfilled())
+        if (this.isFullfilled() || this.isRejected()) {
+            console.warn("Cannot reject a promise more than once, tried to reject with the reason: ", reason);
             return this;
-        // Maintain same reason if it gets rejected more than once
-        if (this.isRejected() && reason != this.reason)
-            return this.reject(this.reason);
+        }
         // Update the state
         this.state = PromiseStates.Rejected;
         this.reason = reason;
         // Perform all of the callback functions
-        for (var i = 0; i < this.__subscriptions.rejection.length; i++) {
+        // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
+        // Looping through this array forwards then the callback function registered in a callback will occure more than once
+        for (var i = this.__subscriptions.fulfillment.length - 1; i >= 0; i--) {
             if (typeof this.__subscriptions.rejection[i] == 'function')
                 this.__subscriptions.rejection[i](this.reason);
         }
@@ -188,15 +189,17 @@ var Promise = (function () {
      * Specifies callback functions for resolution and rejection (rejection is optional)
      */
     Promise.prototype.then = function (onResolve, onRejection) {
-        if (onResolve != undefined && typeof onResolve == 'function')
+        // Add onResolve
+        if (onResolve != undefined && typeof onResolve == 'function' && !this.callbackExists(onResolve)) {
             this.__subscriptions.fulfillment.push(onResolve);
-        if (onRejection != undefined && typeof onRejection == 'function')
-            this.__subscriptions.rejection.push(onRejection);
-        if (this.isRejected()) {
-            this.reject(this.reason);
+            if (this.isFullfilled())
+                onResolve(this.reason); // Call the new function if promise has already been resolved
         }
-        else if (this.isFullfilled()) {
-            this.resolve(this.reason);
+        // Add onRejection
+        if (onRejection != undefined && typeof onRejection == 'function' && !this.callbackExists(onRejection, true)) {
+            this.__subscriptions.rejection.push(onRejection);
+            if (this.isRejected())
+                onRejection(this.reason); // Clal the new function if promise has already been rejected
         }
         return this;
     };
@@ -204,15 +207,18 @@ var Promise = (function () {
      * Specifics a callback function for rejection
      */
     Promise.prototype.catch = function (onRejection) {
-        if (onRejection != undefined && typeof onRejection == 'function')
-            this.__subscriptions.rejection.push(onRejection);
-        if (this.isRejected()) {
-            this.reject(this.reason);
+        return this.then(undefined, onRejection); // Use the .then() function
+    };
+    /**
+     * Tells if a resolve/rejection callback exists, compares functions as strings without any whitespace
+     */
+    Promise.prototype.callbackExists = function (toCheck, isRejection) {
+        var toCheckAsString = toCheck.toString().replace(/\s+/g, '');
+        for (var func in (isRejection) ? this.__subscriptions.rejection : this.__subscriptions.fulfillment) {
+            if (func.toString().replace(/\s+/g, ' ') == toCheckAsString)
+                return true; // Function exists
         }
-        else if (this.isFullfilled()) {
-            this.resolve(this.reason);
-        }
-        return this;
+        return false; // Function does not exist
     };
     return Promise;
 }());

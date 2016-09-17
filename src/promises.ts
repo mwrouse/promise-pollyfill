@@ -30,8 +30,7 @@ class Promise implements IPromise {
     this.reason = null;
 
     // Call the function specified by the user
-    if (resolver)
-    {
+    if (resolver) {
       this.state = PromiseStates.Pending;
 
       resolver((data?: any) => {
@@ -50,11 +49,9 @@ class Promise implements IPromise {
   public isRejected (): Boolean { return this.state == PromiseStates.Rejected; }
   public isPending (): Boolean { return this.state == PromiseStates.Pending; }
   public getState (): string {
-    let states: string[] = ["pending", "fulfilled", "rejected"];
-
     if (this.state == undefined) return "undefined";
 
-    return states[this.state];
+    return ["pending", "fulfilled", "rejected"][this.state];
   }
 
 
@@ -182,18 +179,20 @@ class Promise implements IPromise {
    */
   public resolve (data?: any): IPromise
   {
-    if (this.isRejected()) return this;
-
-    // Resolve with the first data to resolve every time
-    if (this.isFullfilled() && data != this.reason)
-      return this.resolve(this.reason);
+    if (this.isRejected() || this.isFullfilled())
+    {
+      console.warn("Cannot resolve a promise more than once, tried to resolve with data: ", data);
+      return this;
+    }
 
     // Update the state and the reason
     this.state = PromiseStates.Fulfilled;
     this.reason = data;
 
     // Perform all the callback functions
-    for (let i = 0; i < this.__subscriptions.fulfillment.length; i++)
+    // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
+    // Looping through this array forwards then the callback function registered in a callback will occure more than once
+    for (let i = this.__subscriptions.fulfillment.length - 1; i >= 0; i--)
     {
       if (typeof this.__subscriptions.fulfillment[i] == 'function')
         this.__subscriptions.fulfillment[i](this.reason);
@@ -208,18 +207,20 @@ class Promise implements IPromise {
    */
   public reject (reason?: any): IPromise
   {
-    if (this.isFullfilled()) return this;
-
-    // Maintain same reason if it gets rejected more than once
-    if (this.isRejected() && reason != this.reason)
-      return this.reject(this.reason);
+    if (this.isFullfilled() || this.isRejected())
+    {
+      console.warn("Cannot reject a promise more than once, tried to reject with the reason: ", reason);
+      return this;
+    }
 
     // Update the state
     this.state = PromiseStates.Rejected;
     this.reason = reason;
 
     // Perform all of the callback functions
-    for (let i = 0; i < this.__subscriptions.rejection.length; i++)
+    // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
+    // Looping through this array forwards then the callback function registered in a callback will occure more than once
+    for (let i = this.__subscriptions.fulfillment.length - 1; i >= 0; i--)
     {
       if (typeof this.__subscriptions.rejection[i] == 'function')
         this.__subscriptions.rejection[i](this.reason);
@@ -234,14 +235,20 @@ class Promise implements IPromise {
    */
   public then (onResolve: Function, onRejection?: Function): IPromise
   {
-    if (onResolve != undefined && typeof onResolve == 'function') this.__subscriptions.fulfillment.push(onResolve);
-    if (onRejection != undefined && typeof onRejection == 'function') this.__subscriptions.rejection.push(onRejection);
+    // Add onResolve
+    if (onResolve != undefined && typeof onResolve == 'function' && !this.callbackExists(onResolve))
+    {
+      this.__subscriptions.fulfillment.push(onResolve);
 
-    if (this.isRejected()) {
-      this.reject(this.reason);
+      if (this.isFullfilled()) onResolve(this.reason); // Call the new function if promise has already been resolved
     }
-    else if (this.isFullfilled()) {
-      this.resolve(this.reason);
+
+    // Add onRejection
+    if (onRejection != undefined && typeof onRejection == 'function' && !this.callbackExists(onRejection, true))
+    {
+      this.__subscriptions.rejection.push(onRejection);
+
+      if (this.isRejected()) onRejection(this.reason); // Clal the new function if promise has already been rejected
     }
 
     return this;
@@ -253,20 +260,26 @@ class Promise implements IPromise {
    */
   public catch (onRejection: Function): IPromise
   {
-    if (onRejection != undefined && typeof onRejection == 'function') this.__subscriptions.rejection.push(onRejection);
+    return this.then(undefined, onRejection); // Use the .then() function
+  }
 
-    if (this.isRejected()) {
-      this.reject(this.reason);
-    }
-    else if (this.isFullfilled()) {
-      this.resolve(this.reason);
-    }
 
-    return this;
+  /**
+   * Tells if a resolve/rejection callback exists, compares functions as strings without any whitespace
+   */
+  private callbackExists(toCheck: Function, isRejection?: boolean): boolean
+  {
+     let toCheckAsString = toCheck.toString().replace(/\s+/g, '');
+
+     for(let func in (isRejection) ? this.__subscriptions.rejection : this.__subscriptions.fulfillment)
+     {
+       if (func.toString().replace(/\s+/g, ' ') == toCheckAsString) return true; // Function exists
+     }
+
+     return false; // Function does not exist
   }
 
 }
-
 
 // Add the promise onto the window
 window['Promise'] = Promise;
