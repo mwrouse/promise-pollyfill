@@ -7,7 +7,7 @@ interface IPromise {
   state: PromiseStates,
   reason: any,
 
-  isFullfilled (): Boolean,
+  isFulfilled (): Boolean,
   isRejected (): Boolean,
   isPending (): Boolean,
   getState (): string,

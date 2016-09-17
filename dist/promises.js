@@ -32,7 +32,7 @@ var Promise = (function () {
     /**
      * Methods to check the state
      */
-    Promise.prototype.isFullfilled = function () { return this.state == PromiseStates.Fulfilled; };
+    Promise.prototype.isFulfilled = function () { return this.state == PromiseStates.Fulfilled; };
     Promise.prototype.isRejected = function () { return this.state == PromiseStates.Rejected; };
     Promise.prototype.isPending = function () { return this.state == PromiseStates.Pending; };
     Promise.prototype.getState = function () {
@@ -81,12 +81,12 @@ var Promise = (function () {
                 // Add a subscription to each promise in the array
                 promises[i].then(function (data) {
                     // Sub-Promise resolved
-                    if (!self.isFullfilled() && !self.isRejected()) {
+                    if (!self.isFulfilled() && !self.isRejected()) {
                         resolve(data); // First promise to resolve, so resolve result
                     }
                 }, function (reason) {
                     // Sub-Promise rejected
-                    if (!self.isFullfilled() && !self.isRejected()) {
+                    if (!self.isFulfilled() && !self.isRejected()) {
                         reject(reason); // First promise to reject, so reject result
                         i = promises.length; // Do not continue in the for-loop
                     }
@@ -106,7 +106,7 @@ var Promise = (function () {
      * Static method that will return a promise that gets resolved with the value of all the
      * promises in the array, or gets rejected if any of the promises get rejected
      *
-     * The result of the promise returned by this function, if all promises passed were fullfilled, will
+     * The result of the promise returned by this function, if all promises passed were Fulfilled, will
      * be an array in the order from first resolved to last resolved.
      */
     Promise.all = function (promises) {
@@ -122,7 +122,7 @@ var Promise = (function () {
                 // Add subscription to the Sub-Promise
                 promises[i].then(function (data) {
                     // Sub-Promise has resolved
-                    if (!self.isFullfilled() && !self.isRejected()) {
+                    if (!self.isFulfilled() && !self.isRejected()) {
                         tally.push(data); // Add to the running tally
                         // Resolve the results promise when all promises have resolved
                         if (tally.length == promises.length)
@@ -130,7 +130,7 @@ var Promise = (function () {
                     }
                 }, function (reason) {
                     // Sub-Promise was rejected
-                    if (!self.isFullfilled() && !self.isRejected()) {
+                    if (!self.isFulfilled() && !self.isRejected()) {
                         reject(reason); // Reject the results promise with the first sub-promise rejected
                         i = promises.length; // Do not continue in for-loop
                     }
@@ -149,7 +149,7 @@ var Promise = (function () {
      * Resolves a promise
      */
     Promise.prototype.resolve = function (data) {
-        if (this.isRejected() || this.isFullfilled()) {
+        if (this.isRejected() || this.isFulfilled()) {
             console.warn("Cannot resolve a promise more than once, tried to resolve with data: ", data);
             return this;
         }
@@ -169,7 +169,7 @@ var Promise = (function () {
      * Rejects a promise
      */
     Promise.prototype.reject = function (reason) {
-        if (this.isFullfilled() || this.isRejected()) {
+        if (this.isFulfilled() || this.isRejected()) {
             console.warn("Cannot reject a promise more than once, tried to reject with the reason: ", reason);
             return this;
         }
@@ -192,7 +192,7 @@ var Promise = (function () {
         // Add onResolve
         if (onResolve != undefined && typeof onResolve == 'function' && !this.callbackExists(onResolve)) {
             this.__subscriptions.fulfillment.push(onResolve);
-            if (this.isFullfilled())
+            if (this.isFulfilled())
                 onResolve(this.reason); // Call the new function if promise has already been resolved
         }
         // Add onRejection

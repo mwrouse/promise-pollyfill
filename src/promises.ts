@@ -45,7 +45,7 @@ class Promise implements IPromise {
   /**
    * Methods to check the state
    */
-  public isFullfilled (): Boolean { return this.state == PromiseStates.Fulfilled; }
+  public isFulfilled (): Boolean { return this.state == PromiseStates.Fulfilled; }
   public isRejected (): Boolean { return this.state == PromiseStates.Rejected; }
   public isPending (): Boolean { return this.state == PromiseStates.Pending; }
   public getState (): string {
@@ -108,12 +108,12 @@ class Promise implements IPromise {
         // Add a subscription to each promise in the array
         promises[i].then((data?: any) => {
           // Sub-Promise resolved
-          if (!self.isFullfilled() && !self.isRejected()) {
+          if (!self.isFulfilled() && !self.isRejected()) {
             resolve(data); // First promise to resolve, so resolve result
           }
         }, (reason?: any) => {
           // Sub-Promise rejected
-          if (!self.isFullfilled() && !self.isRejected()) {
+          if (!self.isFulfilled() && !self.isRejected()) {
             reject(reason); // First promise to reject, so reject result
 
             i = promises.length; // Do not continue in the for-loop
@@ -131,7 +131,7 @@ class Promise implements IPromise {
    * Static method that will return a promise that gets resolved with the value of all the
    * promises in the array, or gets rejected if any of the promises get rejected
    *
-   * The result of the promise returned by this function, if all promises passed were fullfilled, will
+   * The result of the promise returned by this function, if all promises passed were Fulfilled, will
    * be an array in the order from first resolved to last resolved.
    */
   static all (promises: Promise[]): IPromise
@@ -152,7 +152,7 @@ class Promise implements IPromise {
         // Add subscription to the Sub-Promise
         promises[i].then((data?: any) => {
           // Sub-Promise has resolved
-          if (!self.isFullfilled() && !self.isRejected()) {
+          if (!self.isFulfilled() && !self.isRejected()) {
             tally.push(data); // Add to the running tally
 
             // Resolve the results promise when all promises have resolved
@@ -161,7 +161,7 @@ class Promise implements IPromise {
           }
         }, (reason?: any) => {
           // Sub-Promise was rejected
-          if (!self.isFullfilled() && !self.isRejected()) {
+          if (!self.isFulfilled() && !self.isRejected()) {
             reject(reason); // Reject the results promise with the first sub-promise rejected
 
             i = promises.length; // Do not continue in for-loop
@@ -179,7 +179,7 @@ class Promise implements IPromise {
    */
   public resolve (data?: any): IPromise
   {
-    if (this.isRejected() || this.isFullfilled())
+    if (this.isRejected() || this.isFulfilled())
     {
       console.warn("Cannot resolve a promise more than once, tried to resolve with data: ", data);
       return this;
@@ -207,7 +207,7 @@ class Promise implements IPromise {
    */
   public reject (reason?: any): IPromise
   {
-    if (this.isFullfilled() || this.isRejected())
+    if (this.isFulfilled() || this.isRejected())
     {
       console.warn("Cannot reject a promise more than once, tried to reject with the reason: ", reason);
       return this;
@@ -240,7 +240,7 @@ class Promise implements IPromise {
     {
       this.__subscriptions.fulfillment.push(onResolve);
 
-      if (this.isFullfilled()) onResolve(this.reason); // Call the new function if promise has already been resolved
+      if (this.isFulfilled()) onResolve(this.reason); // Call the new function if promise has already been resolved
     }
 
     // Add onRejection
