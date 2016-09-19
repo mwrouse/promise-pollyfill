@@ -7,6 +7,7 @@ enum PromiseStates {
   Rejected = 2
 }
 
+var setTimeoutOriginal = setTimeout;
 
 /**
  * Promise Pollyfill class
@@ -21,6 +22,8 @@ class Promise implements IPromise {
 
   constructor (resolver?: Function)
   {
+    if (typeof this !== 'object') throw new Error("Promises must be created using the new keyword");
+
     this.__subscriptions = {
         fulfillment: [],
         rejection: []
@@ -31,13 +34,18 @@ class Promise implements IPromise {
 
     // Call the function specified by the user
     if (resolver) {
+      if (typeof resolver !== 'function') throw new Error("Dummy");
+
       this.state = PromiseStates.Pending;
 
-      resolver((data?: any) => {
-          this.resolve(data);
-        }, (reason?: any) => {
-          this.reject(reason);
-        }, this);
+      setTimeoutOriginal( () => {
+        // Call the function passed to constructor
+        resolver((data?: any) => {
+            this.resolve(data);
+          }, (reason?: any) => {
+            this.reject(reason);
+          }, this);
+        }, 0);
     }
   }
 
@@ -67,6 +75,8 @@ class Promise implements IPromise {
    * Static Resolve method
    */
   static resolve (data?: any): IPromise {
+      if (Promise.isPromise(data)) return data;
+
       let result: IPromise = new Promise((resolve, reject) => {
         resolve(data);
       });
@@ -139,6 +149,8 @@ class Promise implements IPromise {
     let tally: any[] = [];
 
     let result: IPromise = new Promise((resolve, reject, self) => {
+      if (promises.length == 0) resolve(tally);
+
       // Loop through all of the promises passed (Sub-Promises)
       for (let i = 0; i < promises.length; i++)
       {
@@ -167,7 +179,7 @@ class Promise implements IPromise {
             i = promises.length; // Do not continue in for-loop
           }
         });
-      }
+      } // End for
     });
 
     return result;
@@ -240,7 +252,11 @@ class Promise implements IPromise {
     {
       this.__subscriptions.fulfillment.push(onResolve);
 
-      if (this.isFulfilled()) onResolve(this.reason); // Call the new function if promise has already been resolved
+      if (this.isFulfilled())
+      {
+        setTimeoutOriginal(() => { onResolve(this.reason); }, 0); // Call the new function if promise has already been resolved
+      }
+
     }
 
     // Add onRejection
@@ -248,7 +264,11 @@ class Promise implements IPromise {
     {
       this.__subscriptions.rejection.push(onRejection);
 
-      if (this.isRejected()) onRejection(this.reason); // Clal the new function if promise has already been rejected
+      if (this.isRejected())
+      {
+        setTimeoutOriginal(() => { onRejection(this.reason); }, 0); // Call the new function if promise has already been rejected
+      }
+
     }
 
     return this;

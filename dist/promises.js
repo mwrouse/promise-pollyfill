@@ -7,12 +7,15 @@ var PromiseStates;
     PromiseStates[PromiseStates["Fulfilled"] = 1] = "Fulfilled";
     PromiseStates[PromiseStates["Rejected"] = 2] = "Rejected";
 })(PromiseStates || (PromiseStates = {}));
+var setTimeoutOriginal = setTimeout;
 /**
  * Promise Pollyfill class
  */
 var Promise = (function () {
     function Promise(resolver) {
         var _this = this;
+        if (typeof this !== 'object')
+            throw new Error("Promises must be created using the new keyword");
         this.__subscriptions = {
             fulfillment: [],
             rejection: []
@@ -21,12 +24,17 @@ var Promise = (function () {
         this.reason = null;
         // Call the function specified by the user
         if (resolver) {
+            if (typeof resolver !== 'function')
+                throw new Error("Dummy");
             this.state = PromiseStates.Pending;
-            resolver(function (data) {
-                _this.resolve(data);
-            }, function (reason) {
-                _this.reject(reason);
-            }, this);
+            setTimeoutOriginal(function () {
+                // Call the function passed to constructor
+                resolver(function (data) {
+                    _this.resolve(data);
+                }, function (reason) {
+                    _this.reject(reason);
+                }, _this);
+            }, 0);
         }
     }
     /**
@@ -50,6 +58,8 @@ var Promise = (function () {
      * Static Resolve method
      */
     Promise.resolve = function (data) {
+        if (Promise.isPromise(data))
+            return data;
         var result = new Promise(function (resolve, reject) {
             resolve(data);
         });
@@ -112,6 +122,8 @@ var Promise = (function () {
     Promise.all = function (promises) {
         var tally = [];
         var result = new Promise(function (resolve, reject, self) {
+            if (promises.length == 0)
+                resolve(tally);
             // Loop through all of the promises passed (Sub-Promises)
             var _loop_2 = function(i) {
                 // Handle non-promises
@@ -141,7 +153,7 @@ var Promise = (function () {
             for (var i = 0; i < promises.length; i++) {
                 _loop_2(i);
                 i = out_i_2;
-            }
+            } // End for
         });
         return result;
     };
@@ -189,17 +201,20 @@ var Promise = (function () {
      * Specifies callback functions for resolution and rejection (rejection is optional)
      */
     Promise.prototype.then = function (onResolve, onRejection) {
+        var _this = this;
         // Add onResolve
         if (onResolve != undefined && typeof onResolve == 'function' && !this.callbackExists(onResolve)) {
             this.__subscriptions.fulfillment.push(onResolve);
-            if (this.isFulfilled())
-                onResolve(this.reason); // Call the new function if promise has already been resolved
+            if (this.isFulfilled()) {
+                setTimeoutOriginal(function () { onResolve(_this.reason); }, 0); // Call the new function if promise has already been resolved
+            }
         }
         // Add onRejection
         if (onRejection != undefined && typeof onRejection == 'function' && !this.callbackExists(onRejection, true)) {
             this.__subscriptions.rejection.push(onRejection);
-            if (this.isRejected())
-                onRejection(this.reason); // Clal the new function if promise has already been rejected
+            if (this.isRejected()) {
+                setTimeoutOriginal(function () { onRejection(_this.reason); }, 0); // Call the new function if promise has already been rejected
+            }
         }
         return this;
     };
