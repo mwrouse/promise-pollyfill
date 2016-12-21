@@ -9,6 +9,8 @@ enum PromiseStates {
 
 var setTimeoutOriginal = setTimeout;
 
+var nothing = function(){}; // Function that does nothing
+
 /**
  * Promise Pollyfill class
  */
@@ -17,36 +19,44 @@ class PromisePolyfill implements IPromise {
   private __subscriptions: IPromiseSubscriptions;
 
   public state: PromiseStates;
-  public reason: any;
+  public value: any;
 
 
   constructor (resolver?: Function)
   {
-    if (!(this instanceof PromisePolyfill)) throw new Error("Promises must be created using the new keyword");
+    if (!PromisePolyfill.isPromise(this))
+      throw new TypeError("Promises must be created using the new keyword");
 
     this.__subscriptions = {
-        fulfillment: [],
-        rejection: []
+        fulfillments: [],
+        rejections: []
       };
 
     this.state = undefined;
-    this.reason = null;
+    this.value = null;
 
     // Call the function specified by the user
     if (resolver && typeof resolver == 'function') {
       this.state = PromiseStates.Pending;
 
       setTimeoutOriginal( () => {
-        // Call the function passed to constructor
-        resolver((data?: any) => {
-            this.resolve(data);
-          }, (reason?: any) => {
-            this.reject(reason);
-          }, this);
-        }, 0);
-      
-    } else { 
-      throw new Error("Promise Resolver " + resolver + " is not a function.");
+        try
+        {
+          // Call the function passed to constructor
+          resolver((data?: any) => {
+              this.resolve(data);
+            }, (reason?: any) => {
+              this.reject(reason);
+            }, this);
+        }
+        catch (e) {
+          // Reject with reason of the exception
+          this.reject(e);
+        }
+      }, 0);
+
+    } else {
+      throw new TypeError("Promise Resolver " + resolver + " is not a function.");
     }
   }
 
@@ -90,8 +100,8 @@ class PromisePolyfill implements IPromise {
    * Static reject method
    */
   static reject (reason: any): IPromise {
-    if (PromisePolyfill.isPromise(reason)) return reason; 
-    
+    if (PromisePolyfill.isPromise(reason)) return reason;
+
     let result: IPromise = new PromisePolyfill((resolve, reject) => {
       reject(reason);
     });
@@ -104,7 +114,7 @@ class PromisePolyfill implements IPromise {
    * Static method that returns the reason of the first promise to resolve/reject from
    * an array of promises
    */
-  static race (promises: Promise[]): IPromise
+  static race (promises: PromisePolyfill[]): IPromise
   {
     let result: IPromise = new PromisePolyfill((resolve, reject, self) => {
       // Loop through all promises passed (Sub-Promises)
@@ -147,7 +157,7 @@ class PromisePolyfill implements IPromise {
    * The result of the promise returned by this function, if all promises passed were Fulfilled, will
    * be an array in the order from first resolved to last resolved.
    */
-  static all (promises: Promise[]): IPromise
+  static all (promises: PromisePolyfill[]): IPromise
   {
     let tally: any[] = [];
 
@@ -199,26 +209,26 @@ class PromisePolyfill implements IPromise {
       console.warn("Cannot resolve a promise more than once, tried to resolve with data: ", data);
       return this;
     }
-    
-    if (PromisePolyfill.isPromise(data)) { 
+
+    if (PromisePolyfill.isPromise(data)) {
       data.then((resolvedData) => {
         this.resolve(resolvedData);
       }, (rejectedData) => {
         this.reject(rejectedData);
       });
     }
-    else { 
+    else {
       // Update the state and the reason
       this.state = PromiseStates.Fulfilled;
-      this.reason = data;
+      this.value = data;
 
       // Perform all the callback functions
       // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
       // Looping through this array forwards then the callback function registered in a callback will occure more than once
-      for (let i = this.__subscriptions.fulfillment.length - 1; i >= 0; i--)
+      for (let i = this.__subscriptions.fulfillments.length - 1; i >= 0; i--)
       {
-        if (typeof this.__subscriptions.fulfillment[i] == 'function')
-          this.__subscriptions.fulfillment[i](this.reason);
+        if (typeof this.__subscriptions.fulfillments[i] == 'function')
+          this.__subscriptions.fulfillments[i](this.value);
       }
     }
     return this;
@@ -236,8 +246,8 @@ class PromisePolyfill implements IPromise {
       console.warn("Cannot reject a promise more than once, tried to reject with the reason: ", reason);
       return this;
     }
-    
-    if (PromisePolyfill.isPromise(reason)) { 
+
+    if (PromisePolyfill.isPromise(reason)) {
       reason.then((resolvedData) => {
         this.resolve(resolvedData);
       }, (rejectedData) => {
@@ -247,15 +257,15 @@ class PromisePolyfill implements IPromise {
     else {
       // Update the state
       this.state = PromiseStates.Rejected;
-      this.reason = reason;
+      this.value = reason;
 
       // Perform all of the callback functions
       // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
       // Looping through this array forwards then the callback function registered in a callback will occure more than once
-      for (let i = this.__subscriptions.rejection.length - 1; i >= 0; i--)
+      for (let i = this.__subscriptions.rejections.length - 1; i >= 0; i--)
       {
-        if (typeof this.__subscriptions.rejection[i] == 'function')
-          this.__subscriptions.rejection[i](this.reason);
+        if (typeof this.__subscriptions.rejections[i] == 'function')
+          this.__subscriptions.rejections[i](this.value);
       }
     }
 
@@ -264,30 +274,30 @@ class PromisePolyfill implements IPromise {
 
 
   /**
-   * Specifies callback functions for resolution and rejection (rejection is optional)
+   * Specifies callback functions for resolution and rejections (rejections is optional)
    */
-  public then (onResolve: Function, onRejection?: Function): IPromise
+  public then (onResolve: Function, onrejections?: Function): IPromise
   {
     // Add onResolve
     if (onResolve != undefined && typeof onResolve == 'function' && !this.callbackExists(onResolve))
     {
-      this.__subscriptions.fulfillment.push(onResolve);
+      this.__subscriptions.fulfillments.push(onResolve);
 
       if (this.isFulfilled())
       {
-        setTimeoutOriginal(() => { onResolve(this.reason); }, 0); // Call the new function if promise has already been resolved
+        setTimeoutOriginal(() => { onResolve(this.value); }, 0); // Call the new function if promise has already been resolved
       }
 
     }
 
-    // Add onRejection
-    if (onRejection != undefined && typeof onRejection == 'function' && !this.callbackExists(onRejection, true))
+    // Add onrejections
+    if (onrejections != undefined && typeof onrejections == 'function' && !this.callbackExists(onrejections, true))
     {
-      this.__subscriptions.rejection.push(onRejection);
+      this.__subscriptions.rejections.push(onrejections);
 
       if (this.isRejected())
       {
-        setTimeoutOriginal(() => { onRejection(this.reason); }, 0); // Call the new function if promise has already been rejected
+        setTimeoutOriginal(() => { onrejections(this.value); }, 0); // Call the new function if promise has already been rejected
       }
 
     }
@@ -297,22 +307,22 @@ class PromisePolyfill implements IPromise {
 
 
   /**
-   * Specifics a callback function for rejection
+   * Specifics a callback function for rejections
    */
-  public catch (onRejection: Function): IPromise
+  public catch (onrejections: Function): IPromise
   {
-    return this.then(undefined, onRejection); // Use the .then() function
+    return this.then(undefined, onrejections); // Use the .then() function
   }
 
 
   /**
-   * Tells if a resolve/rejection callback exists, compares functions as strings without any whitespace
+   * Tells if a resolve/rejections callback exists, compares functions as strings without any whitespace
    */
-  private callbackExists(toCheck: Function, isRejection?: boolean): boolean
+  private callbackExists(toCheck: Function, isrejections?: boolean): boolean
   {
      let toCheckAsString = toCheck.toString().replace(/\s+/g, '');
 
-     for(let func in (isRejection) ? this.__subscriptions.rejection : this.__subscriptions.fulfillment)
+     for(let func in (isrejections) ? this.__subscriptions.rejections : this.__subscriptions.fulfillments)
      {
        if (func.toString().replace(/\s+/g, ' ') == toCheckAsString) return true; // Function exists
      }

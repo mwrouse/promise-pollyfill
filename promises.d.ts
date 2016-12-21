@@ -1,11 +1,11 @@
 interface IPromiseSubscriptions {
-  fulfillment: Function[],
-  rejection: Function[]
+  fulfillments: Function[],
+  rejections: Function[]
 }
 
 interface IPromise {
   state: PromiseStates,
-  reason: any,
+  value: any,
 
   isFulfilled (): Boolean,
   isRejected (): Boolean,
