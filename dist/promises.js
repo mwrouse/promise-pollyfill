@@ -200,8 +200,8 @@ var PromisePolyfill = (function () {
             console.warn("Cannot reject a promise more than once, tried to reject with the reason: ", reason);
             return this;
         }
-        if (PromisePolyfill.isPromise(data)) {
-            data.then(function (resolvedData) {
+        if (PromisePolyfill.isPromise(reason)) {
+            reason.then(function (resolvedData) {
                 _this.resolve(resolvedData);
             }, function (rejectedData) {
                 _this.reject(rejectedData);
