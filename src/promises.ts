@@ -12,7 +12,7 @@ var setTimeoutOriginal = setTimeout;
 /**
  * Promise Pollyfill class
  */
-class Promise implements IPromise {
+class PromisePolyfill implements IPromise {
   // Callback functions
   private __subscriptions: IPromiseSubscriptions;
 
@@ -22,7 +22,7 @@ class Promise implements IPromise {
 
   constructor (resolver?: Function)
   {
-    if (typeof this !== 'object') throw new Error("Promises must be created using the new keyword");
+    if (!(this instanceof PromisePolyfill)) throw new Error("Promises must be created using the new keyword");
 
     this.__subscriptions = {
         fulfillment: [],
@@ -33,9 +33,7 @@ class Promise implements IPromise {
     this.reason = null;
 
     // Call the function specified by the user
-    if (resolver) {
-      if (typeof resolver !== 'function') throw new Error("Dummy");
-
+    if (resolver && typeof resolver == 'function') {
       this.state = PromiseStates.Pending;
 
       setTimeoutOriginal( () => {
@@ -46,6 +44,9 @@ class Promise implements IPromise {
             this.reject(reason);
           }, this);
         }, 0);
+      
+    } else { 
+      throw new Error("Promise Resolver " + resolver + " is not a function.");
     }
   }
 
@@ -67,7 +68,7 @@ class Promise implements IPromise {
    * Runs a function, used for specific cases
    */
   static isPromise (toCheck: Object): Boolean {
-    return (toCheck instanceof Promise);
+    return (toCheck instanceof PromisePolyfill);
   }
 
 
@@ -75,9 +76,9 @@ class Promise implements IPromise {
    * Static Resolve method
    */
   static resolve (data?: any): IPromise {
-      if (Promise.isPromise(data)) return data;
+      if (PromisePolyfill.isPromise(data)) return data;
 
-      let result: IPromise = new Promise((resolve, reject) => {
+      let result: IPromise = new PromisePolyfill((resolve, reject) => {
         resolve(data);
       });
 
@@ -89,7 +90,9 @@ class Promise implements IPromise {
    * Static reject method
    */
   static reject (reason: any): IPromise {
-    let result: IPromise = new Promise((resolve, reject) => {
+    if (PromisePolyfill.isPromise(reason)) return reason; 
+    
+    let result: IPromise = new PromisePolyfill((resolve, reject) => {
       reject(reason);
     });
 
@@ -103,12 +106,12 @@ class Promise implements IPromise {
    */
   static race (promises: Promise[]): IPromise
   {
-    let result: IPromise = new Promise((resolve, reject, self) => {
+    let result: IPromise = new PromisePolyfill((resolve, reject, self) => {
       // Loop through all promises passed (Sub-Promises)
       for (let i = 0; i < promises.length; i++)
       {
         // Handle non-promises
-        if (!Promise.isPromise(promises[i]))
+        if (!PromisePolyfill.isPromise(promises[i]))
         {
             // Not a promise, immediately resolve
             resolve(promises[i]);
@@ -148,14 +151,14 @@ class Promise implements IPromise {
   {
     let tally: any[] = [];
 
-    let result: IPromise = new Promise((resolve, reject, self) => {
+    let result: IPromise = new PromisePolyfill((resolve, reject, self) => {
       if (promises.length == 0) resolve(tally);
 
       // Loop through all of the promises passed (Sub-Promises)
       for (let i = 0; i < promises.length; i++)
       {
         // Handle non-promises
-        if (!Promise.isPromise(promises[i]))
+        if (!PromisePolyfill.isPromise(promises[i]))
         {
           tally.push(promises[i]); // Add to tally
           continue; // Move to next promise passed
@@ -196,21 +199,30 @@ class Promise implements IPromise {
       console.warn("Cannot resolve a promise more than once, tried to resolve with data: ", data);
       return this;
     }
-
-    // Update the state and the reason
-    this.state = PromiseStates.Fulfilled;
-    this.reason = data;
-
-    // Perform all the callback functions
-    // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
-    // Looping through this array forwards then the callback function registered in a callback will occure more than once
-    for (let i = this.__subscriptions.fulfillment.length - 1; i >= 0; i--)
-    {
-      if (typeof this.__subscriptions.fulfillment[i] == 'function')
-        this.__subscriptions.fulfillment[i](this.reason);
+    
+    if (PromisePolyfill.isPromise(data)) { 
+      data.then((resolvedData) => {
+        this.resolve(resolvedData);
+      }, (rejectedData) => {
+        this.reject(rejectedData);
+      });
     }
+    else { 
+      // Update the state and the reason
+      this.state = PromiseStates.Fulfilled;
+      this.reason = data;
 
+      // Perform all the callback functions
+      // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
+      // Looping through this array forwards then the callback function registered in a callback will occure more than once
+      for (let i = this.__subscriptions.fulfillment.length - 1; i >= 0; i--)
+      {
+        if (typeof this.__subscriptions.fulfillment[i] == 'function')
+          this.__subscriptions.fulfillment[i](this.reason);
+      }
+    }
     return this;
+
   }
 
 
@@ -224,18 +236,27 @@ class Promise implements IPromise {
       console.warn("Cannot reject a promise more than once, tried to reject with the reason: ", reason);
       return this;
     }
+    
+    if (PromisePolyfill.isPromise(data)) { 
+      data.then((resolvedData) => {
+        this.resolve(resolvedData);
+      }, (rejectedData) => {
+        this.reject(rejectedData);
+      });
+    }
+    else {
+      // Update the state
+      this.state = PromiseStates.Rejected;
+      this.reason = reason;
 
-    // Update the state
-    this.state = PromiseStates.Rejected;
-    this.reason = reason;
-
-    // Perform all of the callback functions
-    // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
-    // Looping through this array forwards then the callback function registered in a callback will occure more than once
-    for (let i = this.__subscriptions.rejection.length - 1; i >= 0; i--)
-    {
-      if (typeof this.__subscriptions.rejection[i] == 'function')
-        this.__subscriptions.rejection[i](this.reason);
+      // Perform all of the callback functions
+      // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
+      // Looping through this array forwards then the callback function registered in a callback will occure more than once
+      for (let i = this.__subscriptions.rejection.length - 1; i >= 0; i--)
+      {
+        if (typeof this.__subscriptions.rejection[i] == 'function')
+          this.__subscriptions.rejection[i](this.reason);
+      }
     }
 
     return this;
@@ -302,4 +323,4 @@ class Promise implements IPromise {
 }
 
 // Add the promise onto the window
-window['Promise'] = Promise;
+window['Promise'] = PromisePolyfill;
