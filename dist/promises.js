@@ -191,7 +191,7 @@ var Promise = (function () {
         // Perform all of the callback functions
         // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
         // Looping through this array forwards then the callback function registered in a callback will occure more than once
-        for (var i = this.__subscriptions.fulfillment.length - 1; i >= 0; i--) {
+        for (var i = this.__subscriptions.rejection.length - 1; i >= 0; i--) {
             if (typeof this.__subscriptions.rejection[i] == 'function')
                 this.__subscriptions.rejection[i](this.reason);
         }
