@@ -237,8 +237,8 @@ class PromisePolyfill implements IPromise {
       return this;
     }
     
-    if (PromisePolyfill.isPromise(data)) { 
-      data.then((resolvedData) => {
+    if (PromisePolyfill.isPromise(reason)) { 
+      reason.then((resolvedData) => {
         this.resolve(resolvedData);
       }, (rejectedData) => {
         this.reject(rejectedData);
