@@ -14,6 +14,6 @@ interface IPromise {
 
   resolve (data?: any): IPromise,
   reject (reason?: any): IPromise,
-  then (onResolve: Function, onRejection?: Function): IPromise,
+  then (onResolve?: Function, onRejection?: Function): IPromise,
   catch (onRejection: Function): IPromise
 }

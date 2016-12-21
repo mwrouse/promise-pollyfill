@@ -138,8 +138,6 @@ class PromisePolyfill implements IPromise {
           // Sub-Promise rejected
           if (!self.isFulfilled() && !self.isRejected()) {
             reject(reason); // First promise to reject, so reject result
-
-            i = promises.length; // Do not continue in the for-loop
           }
         });
       }
@@ -165,8 +163,7 @@ class PromisePolyfill implements IPromise {
       if (promises.length == 0) resolve(tally);
 
       // Loop through all of the promises passed (Sub-Promises)
-      for (let i = 0; i < promises.length; i++)
-      {
+      for (let i = 0; i < promises.length; i++) {
         // Handle non-promises
         if (!PromisePolyfill.isPromise(promises[i]))
         {
@@ -188,8 +185,6 @@ class PromisePolyfill implements IPromise {
           // Sub-Promise was rejected
           if (!self.isFulfilled() && !self.isRejected()) {
             reject(reason); // Reject the results promise with the first sub-promise rejected
-
-            i = promises.length; // Do not continue in for-loop
           }
         });
       } // End for
@@ -204,13 +199,14 @@ class PromisePolyfill implements IPromise {
    */
   public resolve (data?: any): IPromise
   {
-    if (this.isRejected() || this.isFulfilled())
-    {
+    // Do not allow a promise to be resolved, or rejected more than once
+    if (this.isRejected() || this.isFulfilled()) {
       console.warn("Cannot resolve a promise more than once, tried to resolve with data: ", data);
       return this;
     }
 
     if (PromisePolyfill.isPromise(data)) {
+      // Wait for the result to resolve
       data.then((resolvedData) => {
         this.resolve(resolvedData);
       }, (rejectedData) => {
@@ -241,13 +237,14 @@ class PromisePolyfill implements IPromise {
    */
   public reject (reason?: any): IPromise
   {
-    if (this.isFulfilled() || this.isRejected())
-    {
+    // Do not allow a promise to be resolved, or rejected more than once
+    if (this.isFulfilled() || this.isRejected()) {
       console.warn("Cannot reject a promise more than once, tried to reject with the reason: ", reason);
       return this;
     }
 
     if (PromisePolyfill.isPromise(reason)) {
+      // Wait for the reason to resolve
       reason.then((resolvedData) => {
         this.resolve(resolvedData);
       }, (rejectedData) => {
@@ -276,28 +273,24 @@ class PromisePolyfill implements IPromise {
   /**
    * Specifies callback functions for resolution and rejections (rejections is optional)
    */
-  public then (onResolve: Function, onrejections?: Function): IPromise
+  public then (onResolve?: Function, onRejection?: Function): IPromise
   {
     // Add onResolve
-    if (onResolve != undefined && typeof onResolve == 'function' && !this.callbackExists(onResolve))
-    {
+    if (onResolve != undefined && typeof onResolve == 'function' && !this.callbackExists(onResolve)) {
       this.__subscriptions.fulfillments.push(onResolve);
 
-      if (this.isFulfilled())
-      {
+      if (this.isFulfilled()) {
         setTimeoutOriginal(() => { onResolve(this.value); }, 0); // Call the new function if promise has already been resolved
       }
 
     }
 
     // Add onrejections
-    if (onrejections != undefined && typeof onrejections == 'function' && !this.callbackExists(onrejections, true))
-    {
-      this.__subscriptions.rejections.push(onrejections);
+    if (onRejection != undefined && typeof onRejection == 'function' && !this.callbackExists(onRejection, true)) {
+      this.__subscriptions.rejections.push(onRejection);
 
-      if (this.isRejected())
-      {
-        setTimeoutOriginal(() => { onrejections(this.value); }, 0); // Call the new function if promise has already been rejected
+      if (this.isRejected()) {
+        setTimeoutOriginal(() => { onRejection(this.value); }, 0); // Call the new function if promise has already been rejected
       }
 
     }
@@ -309,9 +302,9 @@ class PromisePolyfill implements IPromise {
   /**
    * Specifics a callback function for rejections
    */
-  public catch (onrejections: Function): IPromise
+  public catch (onRejection: Function): IPromise
   {
-    return this.then(undefined, onrejections); // Use the .then() function
+    return this.then(undefined, onRejection); // Use the .then() function
   }
 
 
@@ -322,8 +315,7 @@ class PromisePolyfill implements IPromise {
   {
      let toCheckAsString = toCheck.toString().replace(/\s+/g, '');
 
-     for(let func in (isrejections) ? this.__subscriptions.rejections : this.__subscriptions.fulfillments)
-     {
+     for(let func in (isrejections) ? this.__subscriptions.rejections : this.__subscriptions.fulfillments) {
        if (func.toString().replace(/\s+/g, ' ') == toCheckAsString) return true; // Function exists
      }
 

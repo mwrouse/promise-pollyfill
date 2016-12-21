@@ -90,12 +90,13 @@ var PromisePolyfill = (function () {
      */
     PromisePolyfill.race = function (promises) {
         var result = new PromisePolyfill(function (resolve, reject, self) {
-            var _loop_1 = function (i) {
+            // Loop through all promises passed (Sub-Promises)
+            for (var i = 0; i < promises.length; i++) {
                 // Handle non-promises
                 if (!PromisePolyfill.isPromise(promises[i])) {
                     // Not a promise, immediately resolve
                     resolve(promises[i]);
-                    return out_i_1 = i, "break";
+                    break;
                 }
                 // Add a subscription to each promise in the array
                 promises[i].then(function (data) {
@@ -107,18 +108,8 @@ var PromisePolyfill = (function () {
                     // Sub-Promise rejected
                     if (!self.isFulfilled() && !self.isRejected()) {
                         reject(reason); // First promise to reject, so reject result
-                        i = promises.length; // Do not continue in the for-loop
                     }
                 });
-                out_i_1 = i;
-            };
-            var out_i_1;
-            // Loop through all promises passed (Sub-Promises)
-            for (var i = 0; i < promises.length; i++) {
-                var state_1 = _loop_1(i);
-                i = out_i_1;
-                if (state_1 === "break")
-                    break;
             }
         });
         return result;
@@ -135,11 +126,12 @@ var PromisePolyfill = (function () {
         var result = new PromisePolyfill(function (resolve, reject, self) {
             if (promises.length == 0)
                 resolve(tally);
-            var _loop_2 = function (i) {
+            // Loop through all of the promises passed (Sub-Promises)
+            for (var i = 0; i < promises.length; i++) {
                 // Handle non-promises
                 if (!PromisePolyfill.isPromise(promises[i])) {
                     tally.push(promises[i]); // Add to tally
-                    return out_i_2 = i, "continue";
+                    continue; // Move to next promise passed
                 }
                 // Add subscription to the Sub-Promise
                 promises[i].then(function (data) {
@@ -154,16 +146,8 @@ var PromisePolyfill = (function () {
                     // Sub-Promise was rejected
                     if (!self.isFulfilled() && !self.isRejected()) {
                         reject(reason); // Reject the results promise with the first sub-promise rejected
-                        i = promises.length; // Do not continue in for-loop
                     }
                 });
-                out_i_2 = i;
-            };
-            var out_i_2;
-            // Loop through all of the promises passed (Sub-Promises)
-            for (var i = 0; i < promises.length; i++) {
-                _loop_2(i);
-                i = out_i_2;
             } // End for
         });
         return result;
@@ -173,11 +157,13 @@ var PromisePolyfill = (function () {
      */
     PromisePolyfill.prototype.resolve = function (data) {
         var _this = this;
+        // Do not allow a promise to be resolved, or rejected more than once
         if (this.isRejected() || this.isFulfilled()) {
             console.warn("Cannot resolve a promise more than once, tried to resolve with data: ", data);
             return this;
         }
         if (PromisePolyfill.isPromise(data)) {
+            // Wait for the result to resolve
             data.then(function (resolvedData) {
                 _this.resolve(resolvedData);
             }, function (rejectedData) {
@@ -203,11 +189,13 @@ var PromisePolyfill = (function () {
      */
     PromisePolyfill.prototype.reject = function (reason) {
         var _this = this;
+        // Do not allow a promise to be resolved, or rejected more than once
         if (this.isFulfilled() || this.isRejected()) {
             console.warn("Cannot reject a promise more than once, tried to reject with the reason: ", reason);
             return this;
         }
         if (PromisePolyfill.isPromise(reason)) {
+            // Wait for the reason to resolve
             reason.then(function (resolvedData) {
                 _this.resolve(resolvedData);
             }, function (rejectedData) {
@@ -231,7 +219,7 @@ var PromisePolyfill = (function () {
     /**
      * Specifies callback functions for resolution and rejections (rejections is optional)
      */
-    PromisePolyfill.prototype.then = function (onResolve, onrejections) {
+    PromisePolyfill.prototype.then = function (onResolve, onRejection) {
         var _this = this;
         // Add onResolve
         if (onResolve != undefined && typeof onResolve == 'function' && !this.callbackExists(onResolve)) {
@@ -241,10 +229,10 @@ var PromisePolyfill = (function () {
             }
         }
         // Add onrejections
-        if (onrejections != undefined && typeof onrejections == 'function' && !this.callbackExists(onrejections, true)) {
-            this.__subscriptions.rejections.push(onrejections);
+        if (onRejection != undefined && typeof onRejection == 'function' && !this.callbackExists(onRejection, true)) {
+            this.__subscriptions.rejections.push(onRejection);
             if (this.isRejected()) {
-                setTimeoutOriginal(function () { onrejections(_this.value); }, 0); // Call the new function if promise has already been rejected
+                setTimeoutOriginal(function () { onRejection(_this.value); }, 0); // Call the new function if promise has already been rejected
             }
         }
         return this;
@@ -252,8 +240,8 @@ var PromisePolyfill = (function () {
     /**
      * Specifics a callback function for rejections
      */
-    PromisePolyfill.prototype.catch = function (onrejections) {
-        return this.then(undefined, onrejections); // Use the .then() function
+    PromisePolyfill.prototype.catch = function (onRejection) {
+        return this.then(undefined, onRejection); // Use the .then() function
     };
     /**
      * Tells if a resolve/rejections callback exists, compares functions as strings without any whitespace
