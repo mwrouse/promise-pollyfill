@@ -1,6 +1,6 @@
 /**
- * Represents the state of any promise
- */
+* Represents the state of any promise
+*/
 var PromiseStates;
 (function (PromiseStates) {
     PromiseStates[PromiseStates["Pending"] = 0] = "Pending";
@@ -10,8 +10,8 @@ var PromiseStates;
 var setTimeoutOriginal = setTimeout;
 var nothing = function () { }; // Function that does nothing
 /**
- * Promise Pollyfill class
- */
+* Promise Pollyfill class
+*/
 var PromisePolyfill = (function () {
     function PromisePolyfill(resolver) {
         var _this = this;
@@ -46,8 +46,8 @@ var PromisePolyfill = (function () {
         }
     }
     /**
-     * Methods to check the state
-     */
+    * Methods to check the state
+    */
     PromisePolyfill.prototype.isFulfilled = function () { return this.state == PromiseStates.Fulfilled; };
     PromisePolyfill.prototype.isRejected = function () { return this.state == PromiseStates.Rejected; };
     PromisePolyfill.prototype.isPending = function () { return this.state == PromiseStates.Pending; };
@@ -57,14 +57,14 @@ var PromisePolyfill = (function () {
         return ["pending", "fulfilled", "rejected"][this.state];
     };
     /**
-     * Runs a function, used for specific cases
-     */
+    * Runs a function, used for specific cases
+    */
     PromisePolyfill.isPromise = function (toCheck) {
         return (toCheck instanceof PromisePolyfill);
     };
     /**
-     * Static Resolve method
-     */
+    * Static Resolve method
+    */
     PromisePolyfill.resolve = function (data) {
         if (PromisePolyfill.isPromise(data))
             return data;
@@ -74,8 +74,8 @@ var PromisePolyfill = (function () {
         return result;
     };
     /**
-     * Static reject method
-     */
+    * Static reject method
+    */
     PromisePolyfill.reject = function (reason) {
         if (PromisePolyfill.isPromise(reason))
             return reason;
@@ -85,9 +85,9 @@ var PromisePolyfill = (function () {
         return result;
     };
     /**
-     * Static method that returns the reason of the first promise to resolve/reject from
-     * an array of promises
-     */
+    * Static method that returns the reason of the first promise to resolve/reject from
+    * an array of promises
+    */
     PromisePolyfill.race = function (promises) {
         var result = new PromisePolyfill(function (resolve, reject, self) {
             // Loop through all promises passed (Sub-Promises)
@@ -115,12 +115,12 @@ var PromisePolyfill = (function () {
         return result;
     };
     /**
-     * Static method that will return a promise that gets resolved with the value of all the
-     * promises in the array, or gets rejected if any of the promises get rejected
-     *
-     * The result of the promise returned by this function, if all promises passed were Fulfilled, will
-     * be an array in the order from first resolved to last resolved.
-     */
+    * Static method that will return a promise that gets resolved with the value of all the
+    * promises in the array, or gets rejected if any of the promises get rejected
+    *
+    * The result of the promise returned by this function, if all promises passed were Fulfilled, will
+    * be an array in the order from first resolved to last resolved.
+    */
     PromisePolyfill.all = function (promises) {
         var tally = [];
         var result = new PromisePolyfill(function (resolve, reject, self) {
@@ -153,8 +153,8 @@ var PromisePolyfill = (function () {
         return result;
     };
     /**
-     * Resolves a promise
-     */
+    * Resolves a promise
+    */
     PromisePolyfill.prototype.resolve = function (data) {
         var _this = this;
         // Do not allow a promise to be resolved, or rejected more than once
@@ -185,8 +185,8 @@ var PromisePolyfill = (function () {
         return this;
     };
     /**
-     * Rejects a promise
-     */
+    * Rejects a promise
+    */
     PromisePolyfill.prototype.reject = function (reason) {
         var _this = this;
         // Do not allow a promise to be resolved, or rejected more than once
@@ -217,38 +217,41 @@ var PromisePolyfill = (function () {
         return this;
     };
     /**
-     * Specifies callback functions for resolution and rejections (rejections is optional)
-     */
+    * Specifies callback functions for resolution and rejections (rejections is optional)
+    */
     PromisePolyfill.prototype.then = function (onResolve, onRejection) {
         var _this = this;
+        var result = new PromisePolyfill(nothing);
         // Add onResolve
-        if (onResolve != undefined && typeof onResolve == 'function' && !this.callbackExists(onResolve)) {
+        if (onResolve != undefined && typeof onResolve == 'function' && !this.__callbackExists(onResolve)) {
+            result.then(onResolve);
             this.__subscriptions.fulfillments.push(onResolve);
             if (this.isFulfilled()) {
                 setTimeoutOriginal(function () { onResolve(_this.value); }, 0); // Call the new function if promise has already been resolved
             }
         }
         // Add onrejections
-        if (onRejection != undefined && typeof onRejection == 'function' && !this.callbackExists(onRejection, true)) {
+        if (onRejection != undefined && typeof onRejection == 'function' && !this.__callbackExists(onRejection, true)) {
+            result.then(undefined, onRejection);
             this.__subscriptions.rejections.push(onRejection);
             if (this.isRejected()) {
                 setTimeoutOriginal(function () { onRejection(_this.value); }, 0); // Call the new function if promise has already been rejected
             }
         }
-        return this;
+        return result;
     };
     /**
-     * Specifics a callback function for rejections
-     */
+    * Specifics a callback function for rejections
+    */
     PromisePolyfill.prototype.catch = function (onRejection) {
         return this.then(undefined, onRejection); // Use the .then() function
     };
     /**
-     * Tells if a resolve/rejections callback exists, compares functions as strings without any whitespace
-     */
-    PromisePolyfill.prototype.callbackExists = function (toCheck, isrejections) {
+    * Tells if a resolve/rejections callback exists, compares functions as strings without any whitespace
+    */
+    PromisePolyfill.prototype.__callbackExists = function (toCheck, isRejection) {
         var toCheckAsString = toCheck.toString().replace(/\s+/g, '');
-        for (var func in (isrejections) ? this.__subscriptions.rejections : this.__subscriptions.fulfillments) {
+        for (var func in (isRejection) ? this.__subscriptions.rejections : this.__subscriptions.fulfillments) {
             if (func.toString().replace(/\s+/g, ' ') == toCheckAsString)
                 return true; // Function exists
         }
