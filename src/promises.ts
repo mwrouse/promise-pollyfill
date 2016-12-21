@@ -17,7 +17,14 @@ var nothing = function(){}; // Function that does nothing
 class PromisePolyfill implements IPromise {
     // Callback functions
     private __subscriptions: IPromiseSubscriptions;
-    private __callbacks: PromisePolyfill[];
+
+
+    private __fullfillments: IThenCallback[];
+    private __rejections: IThenCallback[];
+
+
+    private __resolve: Function;
+    private __reject: Function;
 
     public state: PromiseStates;
     public value: any;
@@ -33,6 +40,10 @@ class PromisePolyfill implements IPromise {
             rejections: []
         };
 
+        this.__fullfillments = [];
+        this.__rejections = [];
+
+
         this.state = undefined;
         this.value = null;
 
@@ -40,23 +51,24 @@ class PromisePolyfill implements IPromise {
         if (resolver && typeof resolver == 'function') {
             this.state = PromiseStates.Pending;
 
-        setTimeoutOriginal( () => {
-            try
-            {
-                // Call the function passed to constructor
-                resolver((data?: any) => {
-                    this.resolve(data);
-                }, (reason?: any) => {
-                    this.reject(reason);
-                }, this);
-            }
-            catch (e) {
-                // Reject with reason of the exception
-                this.reject(e);
-            }
-        }, 0);
+            setTimeoutOriginal( () => {
+                try
+                {
+                    // Call the function passed to constructor
+                    resolver((data?: any) => {
+                        this.resolve(data);
+                    }, (reason?: any) => {
+                        this.reject(reason);
+                    }, this);
+                }
+                catch (e) {
+                    // Reject with reason of the exception
+                    this.reject(e);
+                }
+            }, 0);
 
-        } else {
+        }
+        else {
             throw new TypeError("Promise Resolver " + resolver + " is not a function.");
         }
     }
@@ -221,9 +233,11 @@ class PromisePolyfill implements IPromise {
             // Perform all the callback functions
             // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
             // Looping through this array forwards then the callback function registered in a callback will occure more than once
-            for (let i = this.__subscriptions.fulfillments.length - 1; i >= 0; i--) {
-            if (typeof this.__subscriptions.fulfillments[i] == 'function')
-                this.__subscriptions.fulfillments[i](this.value);
+            for (let i = this.__fullfillments.length - 1; i >= 0; i--) {
+                let fullfillment = this.__fullfillments[i];
+
+                fullfillment.resolveFn();
+                //this.__callbacks[i].resolve(this.value);
             }
         }
         return this;
@@ -258,10 +272,11 @@ class PromisePolyfill implements IPromise {
             // Perform all of the callback functions
             // You have to loop backwards, because if one of the callback functions registers more callbacks and you're
             // Looping through this array forwards then the callback function registered in a callback will occure more than once
-            for (let i = this.__subscriptions.rejections.length - 1; i >= 0; i--) {
-                if (typeof this.__subscriptions.rejections[i] == 'function')
-                    this.__subscriptions.rejections[i](this.value);
+            for (let i = this.__fullfillments.length - 1; i >= 0; i--) {
+                //this.__callbacks[i].reject(this.value);
+                this.__fullfillments[i].rejectFn();
             }
+
         }
 
         return this;
@@ -273,55 +288,61 @@ class PromisePolyfill implements IPromise {
     */
     public then (onResolve?: Function, onRejection?: Function): IPromise
     {
-        var result = new PromisePolyfill(nothing);
+        let fullfillment: IThenCallback = {
+            promise: new PromisePolyfill(nothing),
+            onResolve: () => undefined,
+            onReject: () => undefined,
+
+            resolveFn: nothing,
+            rejectFn: nothing
+        };
 
         // Add onResolve
-        if (onResolve != undefined && typeof onResolve == 'function' && !this.__callbackExists(onResolve)) {
-            result.then(onResolve);
-            this.__subscriptions.fulfillments.push(onResolve);
+        if (onResolve != undefined && typeof onResolve == 'function') {
+            fullfillment.onResolve = onResolve;
+        }
 
-            if (this.isFulfilled()) {
-                setTimeoutOriginal(() => { onResolve(this.value); }, 0); // Call the new function if promise has already been resolved
+        // Add onRejection
+        if (onRejection != undefined && typeof onRejection == 'function') {
+                fullfillment.onReject = onRejection;
+        }
+
+
+        // Add safe resolve function
+        fullfillment.resolveFn = () => {
+            try {
+                let val = fullfillment.onResolve(this.value);
+
+                if (!fullfillment.promise.isRejected() && !fullfillment.promise.isFulfilled())
+                    fullfillment.promise.resolve(val);
             }
-        }
-
-        // Add onrejections
-        if (onRejection != undefined && typeof onRejection == 'function' && !this.__callbackExists(onRejection, true)) {
-            result.then(undefined, onRejection);
-
-            this.__subscriptions.rejections.push(onRejection);
-
-            if (this.isRejected()) {
-                setTimeoutOriginal(() => { onRejection(this.value); }, 0); // Call the new function if promise has already been rejected
+            catch (e) {
+                if (!fullfillment.promise.isRejected() && !fullfillment.promise.isFulfilled())
+                    fullfillment.promise.reject(e);
             }
-        }
+        };
 
-        return result;
-    }
+        // Add safe reject function
+        fullfillment.rejectFn = () => {
+            try {
+
+                let val = fullfillment.onReject(this.value);
+
+                if (!fullfillment.promise.isRejected() && !fullfillment.promise.isFulfilled())
+                    fullfillment.promise.resolve(val);
+            }
+            catch (e) {
+                if (!fullfillment.promise.isRejected() && !fullfillment.promise.isFulfilled())
+                    fullfillment.promise.reject(e);
+            }
+        };
+
+        this.__fullfillments.unshift(fullfillment);
+
+        // Perform callback if already happened
 
 
-    /**
-    * Specifics a callback function for rejections
-    */
-    public catch (onRejection: Function): IPromise
-    {
-        return this.then(undefined, onRejection); // Use the .then() function
-    }
-
-
-    /**
-    * Tells if a resolve/rejections callback exists, compares functions as strings without any whitespace
-    */
-    private __callbackExists(toCheck: Function, isRejection?: boolean): boolean
-    {
-        let toCheckAsString = toCheck.toString().replace(/\s+/g, '');
-
-        for(let func in (isRejection) ? this.__subscriptions.rejections : this.__subscriptions.fulfillments) {
-            if (func.toString().replace(/\s+/g, ' ') == toCheckAsString)
-            return true; // Function exists
-        }
-
-        return false; // Function does not exist
+        return fullfillment.promise;
     }
 
 }
